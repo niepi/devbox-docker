@@ -1,0 +1,74 @@
+version: "2.1"
+services:
+  cli71:
+    build: ./x_docker/images/fpm71/
+    user: www-data
+    entrypoint: bash
+    volumes:
+      - ./:/var/www:cached
+      - ./x_docker/cache/composer:/composer/cache/
+    env_file:
+      - ./x_docker/common.env
+    depends_on:
+      - nginx
+      - mysql
+      - memcached
+      - elasticsearch
+  fpm71:
+    build: ./x_docker/images/fpm71/
+    depends_on:
+      - mysql
+      - memcached
+      - elasticsearch
+    env_file:
+      - ./x_docker/common.env
+    volumes:
+      - ./:/var/www:cached
+    ports:
+      - "9000"
+  nginx:
+    image: nginx:stable-alpine
+    depends_on:
+      # - fpm70
+      - fpm71
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/var/www
+      - ./x_docker/nginx/sites:/etc/nginx/conf.d
+  mysql:
+    image: mysql:5.6.35
+    env_file:
+      - ./x_docker/common.env
+    volumes:
+      - ./x_docker/data/mysql:/var/lib/mysql
+    ports:
+      - "3306:3306"
+      # to make it locally available to the host, use: "3306:3306" (localport:3306)
+  elasticsearch:
+    image: elasticsearch:5-alpine
+    volumes:
+      - ./x_docker/data/elasticsearch:/usr/share/elasticsearch/data
+    environment:
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    mem_limit: 1g
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "9200:9200"
+      # to make it locally available to the host, use: "9200:9200" (localport:9200)
+  memcached:
+    image: memcached:1.5-alpine
+    ports:
+      - "11211"
+      # to make it locally available to the host, use: "11211:11211" (localport:11211)
